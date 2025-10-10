@@ -25,7 +25,7 @@ class AudioManager { /* ... same ... */
 }
 
 class Player { /* ... same ... */
-    constructor() {this.health=100;this.maxHealth=100;this.weapons=[{name:'Pistol',ammo:Infinity,damage:50,fireRate:300,spread:0.02,pellets:1,isHitscan:true,automatic:false,sound:'pistol_shot',recoil:{x:0.01,y:0.02,duration:80}},{name:'Shotgun',ammo:20,maxAmmo:50,damage:15,fireRate:800,spread:0.15,pellets:8,isHitscan:true,automatic:false,sound:'shotgun_shot',recoil:{x:0.03,y:0.06,duration:150}},{name:'MachineGun',ammo:150,maxAmmo:300,damage:8,fireRate:70,spread:0.05,pellets:1,isHitscan:true,automatic:true,sound:'machinegun_shot',recoil:{x:0.005,y:0.01,duration:50}},{name:'PlasmaGun',ammo:50,maxAmmo:100,damage:100,fireRate:500,spread:0,pellets:1,projectileSpeed:35,isHitscan:false,automatic:false,aoeRadius:1.2,aoeDamage:15,sound:'plasma_shot',recoil:{x:0.02,y:0.03,duration:100}}];this.currentWeaponIndex=0;this.lastShotTime=0;this.isShooting=false;this.playerCollider=new THREE.Box3();this.updateCollider();this.isFrozen=false;this.freezeTimer=0;this.freezeDuration=3;this.isPoisoned=false;this.poisonTimer=0;this.poisonDuration=4;this.poisonDamage=5;this.recoilOffset=new THREE.Vector2();this.recoilReturnSpeed=5;}
+    constructor() {this.health=100;this.maxHealth=100;this.lives = 3; this.weapons=[{name:'Pistol',ammo:Infinity,damage:50,fireRate:300,spread:0.02,pellets:1,isHitscan:true,automatic:false,sound:'pistol_shot',recoil:{x:0.01,y:0.02,duration:80}},{name:'Shotgun',ammo:20,maxAmmo:50,damage:15,fireRate:800,spread:0.15,pellets:8,isHitscan:true,automatic:false,sound:'shotgun_shot',recoil:{x:0.03,y:0.06,duration:150}},{name:'MachineGun',ammo:150,maxAmmo:300,damage:8,fireRate:70,spread:0.05,pellets:1,isHitscan:true,automatic:true,sound:'machinegun_shot',recoil:{x:0.005,y:0.01,duration:50}},{name:'PlasmaGun',ammo:50,maxAmmo:100,damage:100,fireRate:500,spread:0,pellets:1,projectileSpeed:35,isHitscan:false,automatic:false,aoeRadius:1.2,aoeDamage:15,sound:'plasma_shot',recoil:{x:0.02,y:0.03,duration:100}}];this.currentWeaponIndex=0;this.lastShotTime=0;this.isShooting=false;this.playerCollider=new THREE.Box3();this.updateCollider();this.isFrozen=false;this.freezeTimer=0;this.freezeDuration=3;this.isPoisoned=false;this.poisonTimer=0;this.poisonDuration=4;this.poisonDamage=5;this.recoilOffset=new THREE.Vector2();this.recoilReturnSpeed=5;}
     updateCollider(){this.playerCollider.setFromCenterAndSize(new THREE.Vector3(camera.position.x,camera.position.y-PLAYER_HEIGHT/2+0.1,camera.position.z),new THREE.Vector3(PLAYER_RADIUS*2,PLAYER_HEIGHT,PLAYER_RADIUS*2));}
     update(delta){if(this.isFrozen){this.freezeTimer-=delta;if(this.freezeTimer<=0)this.unfreeze();}if(this.isPoisoned){this.poisonTimer-=delta;if(this.poisonTimer<=0)this.unpoison();}this.handleRecoil(delta);}
     handleRecoil(delta){if(this.recoilOffset.lengthSq()>0.00001){const rAX=this.recoilOffset.x*this.recoilReturnSpeed*delta;const rAY=this.recoilOffset.y*this.recoilReturnSpeed*delta;const e=new THREE.Euler(0,0,0,'YXZ');e.setFromQuaternion(camera.quaternion);e.x-=rAY;e.y-=rAX;camera.quaternion.setFromEuler(e);this.recoilOffset.x-=rAX;this.recoilOffset.y-=rAY;}else{this.recoilOffset.set(0,0);}}
@@ -36,7 +36,7 @@ class Player { /* ... same ... */
     unpoison(){this.isPoisoned=false;this.poisonTimer=0;if(!this.isFrozen)currentPlayerSpeed=BASE_PLAYER_SPEED;poisonedPlayerOverlay.style.display='none';}
     shoot(currentTime){const weapon=this.weapons[this.currentWeaponIndex];if(currentTime-this.lastShotTime<weapon.fireRate)return;if(weapon.ammo===0&&weapon.name!=='Pistol')return;this.lastShotTime=currentTime;if(weapon.name!=='Pistol')weapon.ammo--;this.applyRecoil(weapon.recoil);const direction=new THREE.Vector3();camera.getWorldDirection(direction);const muzzleFlashMaterial=new THREE.SpriteMaterial({map:muzzleFlashes[weapon.name]||muzzleFlashes.default,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true});const muzzleFlash=new THREE.Sprite(muzzleFlashMaterial);const muzzleOffset=direction.clone().multiplyScalar(0.7);muzzleFlash.position.copy(camera.position).add(muzzleOffset);let flashScale=(weapon.name==='Shotgun'?0.9:(weapon.name==='PlasmaGun'?0.7:0.55));muzzleFlash.scale.set(flashScale,flashScale,1);scene.add(muzzleFlash);temporaryEffects.push({mesh:muzzleFlash,lifetime:0.06+(weapon.name==='Shotgun'?0.03:0)});if(audioManager)audioManager.playSound(weapon.sound);if(weapon.isHitscan){for(let i=0;i<weapon.pellets;i++){const spreadDirection=direction.clone();spreadDirection.x+=(Math.random()-0.5)*weapon.spread;spreadDirection.y+=(Math.random()-0.5)*weapon.spread;spreadDirection.z+=(Math.random()-0.5)*weapon.spread;spreadDirection.normalize();const raycaster=new THREE.Raycaster(camera.position,spreadDirection,0.01,100);const objectsToTest=enemies.filter(e=>e.health>0).map(e=>e.collisionMesh).concat(gameManager.walls);if(doomSphere&&!doomSphere.isDestroyed)objectsToTest.push(doomSphere.mesh);const intersects=raycaster.intersectObjects(objectsToTest,false);const shotGeo=new THREE.SphereGeometry(0.05,4,4);const shotMat=new THREE.MeshBasicMaterial({color:0xffefaa,transparent:true,opacity:0.9});const shotMesh=new THREE.Mesh(shotGeo,shotMat);shotMesh.position.copy(camera.position).add(muzzleOffset);let hitPointForVisual=camera.position.clone().add(spreadDirection.clone().multiplyScalar(70));if(intersects.length>0){const hit=intersects[0];hitPointForVisual=hit.point.clone();if(hit.object.userData.isEnemyCollider&&hit.object.userData.enemyInstance){hit.object.userData.enemyInstance.takeDamage(weapon.damage,hit.point);}else if(hit.object.userData.isDoomSphere&&hit.object.userData.sphereInstance){hit.object.userData.sphereInstance.takeDamage(weapon.damage,hit.point);}else if(hit.object.userData.isWall){createImpactDecal(hit.point,hit.face.normal,'bullet_hole');}}temporaryEffects.push({mesh:shotMesh,lifetime:0.08,velocity:spreadDirection.clone().multiplyScalar(200),isPhysicsParticle:true,target:hitPointForVisual,isVisualBullet:true});}}else{const projectile=new Projectile(camera.position.clone().add(direction.clone().multiplyScalar(0.7)),direction.clone(),weapon.projectileSpeed,weapon.damage,true,weapon.aoeRadius,weapon.aoeDamage,'plasma');bullets.push(projectile);scene.add(projectile.mesh);}updateUI();}
     switchWeapon(idx){if(idx>=0&&idx<this.weapons.length){this.currentWeaponIndex=idx;updateUI();const newWeapon=this.weapons[this.currentWeaponIndex];if(newWeapon.automatic&&keys['MOUSE_LEFT']){this.isShooting=true;}else{this.isShooting=false;}}}
-    takeDamage(amount){this.health-=amount;if(this.health<0)this.health=0;const dO=document.createElement('div');dO.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;background-color:rgba(255,0,0,0.3);pointer-events:none;";document.body.appendChild(dO);setTimeout(()=>document.body.removeChild(dO),100);if(audioManager)audioManager.playSound('player_hit');updateUI();if(this.health===0)gameManager.gameOver();}
+    takeDamage(amount){this.health-=amount;if(this.health<0)this.health=0;const dO=document.createElement('div');dO.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;background-color:rgba(255,0,0,0.3);pointer-events:none;";document.body.appendChild(dO);setTimeout(()=>document.body.removeChild(dO),100);if(audioManager)audioManager.playSound('player_hit');updateUI();if(this.health===0){this.lives--;updateUI();if(this.lives>0){gameManager.restartGameInternal(true);}else{gameManager.gameOver();}}}
     addHealth(amount){this.health=Math.min(this.health+amount,this.maxHealth);showGameMessage(`Health +${amount}!`,1500);if(audioManager)audioManager.playSound('pickup');updateUI();}
     addAmmo(weaponName,amount){const w=this.weapons.find(wp=>wp.name===weaponName);if(w&&w.name!=='Pistol'){w.ammo=Math.min(w.ammo+amount,w.maxAmmo);showGameMessage(`${w.name} Ammo +${amount}!`,1500);if(audioManager)audioManager.playSound('pickup',{frequency:1200});updateUI();}}
 }
@@ -98,10 +98,10 @@ class GameManager { /* ... Title screen enemy animation updated ... */
             const p = new THREE.Vector3((sX - MAP_DATA[0].length / 2) * TILE_SIZE + TILE_SIZE / 2, 0, (sZ - MAP_DATA.length / 2) * TILE_SIZE + TILE_SIZE / 2);
 
             const spawnTable = [
-                { type: 'red', weight: 10 },
-                { type: 'green', weight: 1 + this.difficultyLevel },
-                { type: 'blue', weight: Math.max(0, this.difficultyLevel - 1) },
-                { type: 'watcher', weight: Math.max(0, this.difficultyLevel - 2) }
+                { type: 'red', weight: 8 },
+                { type: 'green', weight: 2 + this.difficultyLevel },
+                { type: 'blue', weight: 2 + this.difficultyLevel },
+                { type: 'watcher', weight: 1 + this.difficultyLevel }
             ];
 
             const totalWeight = spawnTable.reduce((sum, entry) => sum + entry.weight, 0);
@@ -127,9 +127,89 @@ class GameManager { /* ... Title screen enemy animation updated ... */
     showTitleScreen(){mainTitle.textContent="Splat!";statusMessage.textContent="Click to Blast!";actionButton.textContent="Start Game";actionButton.onclick=()=>this.startGame();exitButton.style.display='none';creditsText.style.display='block';instructionScrollerContainer.style.display='block';titleScreenEnemiesContainer.style.display='block';messageOverlay.style.display='flex';if(controls)controls.unlock();gameRunning=false;}
     startGame(){instructionScrollerContainer.style.display='none';titleScreenEnemiesContainer.style.display='none';messageOverlay.style.display='none';if(controls)controls.lock();if(player&&player.health===0)this.restartGameInternal();if(audioManager)audioManager.resumeContext();if(!doomSphere)this.spawnDoomSphere();}
     showPauseScreen(){mainTitle.textContent="Paused";statusMessage.textContent="Take a breather, Slayer...";actionButton.textContent="Resume";actionButton.onclick=()=>{instructionScrollerContainer.style.display='none';titleScreenEnemiesContainer.style.display='none';messageOverlay.style.display='none';if(controls)controls.lock();};exitButton.textContent="Exit to Title";exitButton.style.display='inline-block';exitButton.onclick=()=>{this.showTitleScreen();this.resetEntireGameForTitle();};creditsText.style.display='none';instructionScrollerContainer.style.display='none';titleScreenEnemiesContainer.style.display='none';messageOverlay.style.display='flex';}
-    gameOver(){gameRunning=false;if(controls)controls.unlock();mainTitle.textContent="Game Over!";statusMessage.textContent=`You splatted ${this.enemiesKilled} demons!`;actionButton.textContent="Try Again?";actionButton.onclick=()=>this.restartGameInternal();exitButton.style.display='inline-block';exitButton.textContent="Back to Title";exitButton.onclick=()=>{this.showTitleScreen();this.resetEntireGameForTitle();};creditsText.style.display='none';instructionScrollerContainer.style.display='none';titleScreenEnemiesContainer.style.display='block'; /* Show enemies on game over */ messageOverlay.style.display='flex';if(doomSphere){doomSphere.destroy(false);doomSphere=null;}}
-    resetEntireGameForTitle(){temporaryEffects.forEach(eff=>scene.remove(eff.mesh));temporaryEffects.length=0;enemies.forEach(e=>{scene.remove(e.spriteMesh);scene.remove(e.collisionMesh);if(e.type==='watcher'&&e.laserHitCheckInterval)clearInterval(e.laserHitCheckInterval);});enemies.length=0;bullets.forEach(b=>scene.remove(b.mesh));bullets.length=0;this.pickups.forEach(p=>scene.remove(p.mesh));this.pickups.length=0;if(doomSphere){doomSphere.destroy(false);doomSphere=null;}player=new Player();this.enemiesKilled=0;this.difficultyLevel=0;this.maxEnemies=5;this.enemySpawnInterval=5000;this.lastSpawnTime=0;const startPos=findStartPosition();if(camera){camera.position.set(startPos.x,PLAYER_HEIGHT,startPos.z);camera.rotation.set(0,0,0);}if(controls&&controls.euler){controls.euler.set(0,0,0,'YXZ');if(camera)camera.quaternion.setFromEuler(controls.euler);}buildLevel();buildLevelPickups();updateUI();currentPlayerSpeed=BASE_PLAYER_SPEED;player.unfreeze();player.unpoison();}
-    restartGameInternal(){console.log("Internal Restart...");this.resetEntireGameForTitle();instructionScrollerContainer.style.display='none';titleScreenEnemiesContainer.style.display='none';messageOverlay.style.display='none';if(controls)controls.lock();if(!doomSphere)this.spawnDoomSphere();}
+    gameOver() {
+        gameRunning = false;
+        if (controls) controls.unlock();
+        mainTitle.textContent = "Game Over!";
+        statusMessage.textContent = `You splatted ${this.enemiesKilled} demons!`;
+        actionButton.textContent = "Try Again?";
+        actionButton.onclick = () => {
+            player = new Player();
+            this.restartGameInternal();
+        };
+        exitButton.style.display = 'inline-block';
+        exitButton.textContent = "Back to Title";
+        exitButton.onclick = () => {
+            player = new Player();
+            this.showTitleScreen();
+            this.resetEntireGameForTitle();
+        };
+        creditsText.style.display = 'none';
+        instructionScrollerContainer.style.display = 'none';
+        titleScreenEnemiesContainer.style.display = 'block'; /* Show enemies on game over */
+        messageOverlay.style.display = 'flex';
+        if (doomSphere) {
+            doomSphere.destroy(false);
+            doomSphere = null;
+        }
+    }
+    resetEntireGameForTitle(keepLives = false) {
+        temporaryEffects.forEach(eff => scene.remove(eff.mesh));
+        temporaryEffects.length = 0;
+        enemies.forEach(e => {
+            scene.remove(e.spriteMesh);
+            scene.remove(e.collisionMesh);
+            if (e.type === 'watcher' && e.laserHitCheckInterval) clearInterval(e.laserHitCheckInterval);
+        });
+        enemies.length = 0;
+        bullets.forEach(b => scene.remove(b.mesh));
+        bullets.length = 0;
+        this.pickups.forEach(p => scene.remove(p.mesh));
+        this.pickups.length = 0;
+        if (doomSphere) {
+            doomSphere.destroy(false);
+            doomSphere = null;
+        }
+
+        const currentLives = keepLives ? player.lives : 3;
+        const currentKills = keepLives ? this.enemiesKilled : 0;
+
+        player = new Player();
+        player.lives = currentLives;
+        this.enemiesKilled = currentKills;
+
+        if (!keepLives) {
+            this.difficultyLevel = 0;
+            this.maxEnemies = 5;
+            this.enemySpawnInterval = 5000;
+        }
+
+        this.lastSpawnTime = 0;
+        const startPos = findStartPosition();
+        if (camera) {
+            camera.position.set(startPos.x, PLAYER_HEIGHT, startPos.z);
+            camera.rotation.set(0, 0, 0);
+        }
+        if (controls && controls.euler) {
+            controls.euler.set(0, 0, 0, 'YXZ');
+            if (camera) camera.quaternion.setFromEuler(controls.euler);
+        }
+        buildLevel();
+        buildLevelPickups();
+        updateUI();
+        currentPlayerSpeed = BASE_PLAYER_SPEED;
+        player.unfreeze();
+        player.unpoison();
+    }
+    restartGameInternal(keepLives = false) {
+        console.log("Internal Restart...");
+        this.resetEntireGameForTitle(keepLives);
+        instructionScrollerContainer.style.display = 'none';
+        titleScreenEnemiesContainer.style.display = 'none';
+        messageOverlay.style.display = 'none';
+        if (controls) controls.lock();
+        if (!doomSphere) this.spawnDoomSphere();
+    }
 }
 
 function init() { /* ... same ... */
@@ -282,7 +362,21 @@ function handleInput(delta){ /* ... same as v0.7.3 ... */
 function createBloodSplat(pos,lg=false,scM=1){const sM=new THREE.SpriteMaterial({color:0xff0000,transparent:true,opacity:0.9});const s=new THREE.Sprite(sM);s.position.copy(pos);s.position.x+=(Math.random()-0.5)*(lg?1:0.3);s.position.y+=(Math.random()-0.5)*(lg?1:0.3);s.position.z+=(Math.random()-0.5)*(lg?1:0.3);const sc=(Math.random()*0.3+0.1)*(lg?2:1)*scM;s.scale.set(sc,sc,sc);scene.add(s);temporaryEffects.push({mesh:s,lifetime:0.4+Math.random()*0.3});}
 function createImpactDecal(position, normal, type = 'bullet_hole') {const decalMaterial = new THREE.MeshBasicMaterial({map: decalTextures[type] || decalTextures.bullet_hole,transparent: true, opacity: 0.8,polygonOffset: true, polygonOffsetFactor: -4 });const decalSize = (type === 'energy_scorch') ? 0.5 : 0.25;const decalGeometry = new THREE.PlaneGeometry(decalSize, decalSize); const decal = new THREE.Mesh(decalGeometry, decalMaterial);decal.position.copy(position); decal.position.add(normal.clone().multiplyScalar(0.01)); decal.lookAt(position.clone().add(normal)); decal.rotation.z = Math.random() * Math.PI * 2; scene.add(decal); temporaryEffects.push({mesh:decal,lifetime:(type === 'energy_scorch' ? 3 : 5)}); }
 function drawMinimap() { /* ... same ... */ const mapWidth=MAP_DATA[0].length,mapHeight=MAP_DATA.length,miniTileSizeX=minimapCanvas.width/mapWidth,miniTileSizeY=minimapCanvas.height/mapHeight;minimapCtx.clearRect(0,0,minimapCanvas.width,minimapCanvas.height);for(let y=0;y<mapHeight;y++)for(let x=0;x<mapWidth;x++){if(MAP_DATA[y][x]===1)minimapCtx.fillStyle='#555';else if(MAP_DATA[y][x]>=2&&MAP_DATA[y][x]<=4)minimapCtx.fillStyle='#333';else minimapCtx.fillStyle='#222';minimapCtx.fillRect(x*miniTileSizeX,y*miniTileSizeY,miniTileSizeX,miniTileSizeY);}const worldToMinimap=(wX,wZ)=>{const mOX=-(mapWidth/2)*TILE_SIZE,mOZ=-(mapHeight/2)*TILE_SIZE;return{x:((wX-mOX)/(mapWidth*TILE_SIZE))*minimapCanvas.width,y:((wZ-mOZ)/(mapHeight*TILE_SIZE))*minimapCanvas.height};};if(player&&camera){const pP=worldToMinimap(camera.position.x,camera.position.z);minimapCtx.fillStyle='lime';minimapCtx.beginPath();minimapCtx.arc(pP.x,pP.y,3,0,Math.PI*2);minimapCtx.fill();const pD=new THREE.Vector3();camera.getWorldDirection(pD);minimapCtx.strokeStyle='lime';minimapCtx.lineWidth=1;minimapCtx.beginPath();minimapCtx.moveTo(pP.x,pP.y);minimapCtx.lineTo(pP.x+pD.x*8,pP.y+pD.z*8);minimapCtx.stroke();}enemies.forEach(e=>{if(e.health>0){const eP=worldToMinimap(e.spriteMesh.position.x,e.spriteMesh.position.z);let enemyColor='red';if(e.type==='green')enemyColor='lime';else if(e.type==='blue')enemyColor='cyan';else if(e.type==='watcher')enemyColor='#FF00FF';minimapCtx.fillStyle=enemyColor;minimapCtx.beginPath();minimapCtx.arc(eP.x,eP.y,2.5,0,Math.PI*2);minimapCtx.fill();}});if(doomSphere && !doomSphere.isDestroyed){const dsP = worldToMinimap(doomSphere.mesh.position.x, doomSphere.mesh.position.z); minimapCtx.fillStyle='#FFA500'; minimapCtx.beginPath(); minimapCtx.arc(dsP.x, dsP.y, 3.5, 0, Math.PI*2); minimapCtx.fill();}minimapCtx.fillStyle='cyan';gameManager.pickups.forEach(p=>{if(!p.collected&&!p.isSmallDrop){const pP=worldToMinimap(p.mesh.position.x,p.mesh.position.z);minimapCtx.fillRect(pP.x-2,pP.y-2,4,4);}});}
-function updateUI(){if(!player||!gameManager)return;const healthPercent=(player.health/player.maxHealth)*100;healthBarInner.style.width=`${healthPercent}%`;healthText.textContent=`${Math.round(healthPercent)}%`;if(healthPercent<30)healthBarInner.style.backgroundColor='#cc0000';else if(healthPercent<60)healthBarInner.style.backgroundColor='#cccc00';else healthBarInner.style.backgroundColor='#00cc00';const cW=player.weapons[player.currentWeaponIndex];weaponDisplay.textContent=`W:${cW.name.substring(0,6)}`;ammoDisplay.textContent=`A:${cW.ammo===Infinity?'∞':cW.ammo}`;scoreDisplay.textContent=`K:${gameManager.enemiesKilled}`;}
+const livesDisplay = document.getElementById('livesDisplay');
+function updateUI() {
+    if (!player || !gameManager) return;
+    const healthPercent = (player.health / player.maxHealth) * 100;
+    healthBarInner.style.width = `${healthPercent}%`;
+    healthText.textContent = `${Math.round(healthPercent)}%`;
+    if (healthPercent < 30) healthBarInner.style.backgroundColor = '#cc0000';
+    else if (healthPercent < 60) healthBarInner.style.backgroundColor = '#cccc00';
+    else healthBarInner.style.backgroundColor = '#00cc00';
+    const cW = player.weapons[player.currentWeaponIndex];
+    weaponDisplay.textContent = `W:${cW.name.substring(0, 6)}`;
+    ammoDisplay.textContent = `A:${cW.ammo === Infinity ? '∞' : cW.ammo}`;
+    scoreDisplay.textContent = `K:${gameManager.enemiesKilled}`;
+    livesDisplay.textContent = `L:${player.lives}`;
+}
 function showGameMessage(txt,dur=1500){gameMessageCenter.textContent=txt; gameMessageCenter.style.display='block';setTimeout(()=>{if(gameMessageCenter.textContent===txt)gameMessageCenter.style.display='none';},dur);}
 function onWindowResize(){camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);minimapCanvas.width=minimapCanvas.offsetWidth;minimapCanvas.height=minimapCanvas.offsetHeight;}
 init(); animate(); console.log("Loop started.");
