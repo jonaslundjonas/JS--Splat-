@@ -97,19 +97,12 @@ class GameManager { /* ... Title screen enemy animation updated ... */
         if (vS) {
             const p = new THREE.Vector3((sX - MAP_DATA[0].length / 2) * TILE_SIZE + TILE_SIZE / 2, 0, (sZ - MAP_DATA.length / 2) * TILE_SIZE + TILE_SIZE / 2);
 
-            const effectiveDifficulty = Math.min(this.difficultyLevel, 5);
-
-            const spawnTable = [];
-            for(const type in this.enemyTypes) {
-                const enemyInfo = this.enemyTypes[type];
-                let weight = enemyInfo.probability;
-                if (type !== 'red') {
-                    weight *= (1 + effectiveDifficulty * 0.25);
-                } else {
-                    weight /= (1 + effectiveDifficulty * 0.1);
-                }
-                spawnTable.push({ type: type, weight: weight });
-            }
+            const spawnTable = [
+                { type: 'red', weight: 10 },
+                { type: 'green', weight: 1 + this.difficultyLevel },
+                { type: 'blue', weight: Math.max(0, this.difficultyLevel - 1) },
+                { type: 'watcher', weight: Math.max(0, this.difficultyLevel - 2) }
+            ];
 
             const totalWeight = spawnTable.reduce((sum, entry) => sum + entry.weight, 0);
             const roll = Math.random() * totalWeight;
@@ -160,7 +153,90 @@ function init() { /* ... same ... */
 function findStartPosition(){for(let z=0;z<MAP_DATA.length;z++)for(let x=0;x<MAP_DATA[0].length;x++)if(MAP_DATA[z][x]===0)return{x:(x-MAP_DATA[0].length/2)*TILE_SIZE+TILE_SIZE/2,z:(z-MAP_DATA.length/2)*TILE_SIZE+TILE_SIZE/2};return{x:0,z:0};}
 function createTorchFlameTexture(s=32){const cv=document.createElement('canvas');cv.width=s;cv.height=s;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;const grd=ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);grd.addColorStop(0,'rgba(255,220,150,0.9)');grd.addColorStop(0.4,'rgba(255,160,0,0.7)');grd.addColorStop(0.8,'rgba(255,60,0,0.3)');grd.addColorStop(1,'rgba(20,0,0,0)');ctx.fillStyle=grd;ctx.fillRect(0,0,s,s);const t=new THREE.CanvasTexture(cv);t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearFilter;return t}
 const torchFlameTexture=createTorchFlameTexture();
-function buildLevel() { const wG = new THREE.BoxGeometry(TILE_SIZE, WALL_HEIGHT, TILE_SIZE); const wM = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.8, metalness: 0.2 }); gameManager.walls.forEach(w => scene.remove(w)); gameManager.walls = []; torches.forEach(t => { scene.remove(t.mesh); scene.remove(t.light); scene.remove(t.flame); }); torches.length = 0; for (let z = 0; z < MAP_DATA.length; z++) for (let x = 0; x < MAP_DATA[0].length; x++) { const block = MAP_DATA[z][x]; const pX = (x - MAP_DATA[0].length / 2) * TILE_SIZE + TILE_SIZE / 2; const pZ = (z - MAP_DATA.length / 2) * TILE_SIZE + TILE_SIZE / 2; if (block === 1) { const w = new THREE.Mesh(wG, wM); w.position.set(pX, WALL_HEIGHT / 2, pZ); w.userData.isWall = true; scene.add(w); gameManager.walls.push(w); } else if (block === 5) { const torchGeo = new THREE.CylinderGeometry(0.1, 0.2, 1.5, 8); const torchMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, metalness: 0.3, emissive: 0x1a0a02, emissiveIntensity: 2 }); const torchMesh = new THREE.Mesh(torchGeo, torchMat); torchMesh.position.set(pX, 1, pZ); const light = new THREE.PointLight(0xffaa33, 1.5, 15, 2); light.position.set(pX, 1.8, pZ); const flameMat = new THREE.SpriteMaterial({ map: torchFlameTexture, blending: THREE.AdditiveBlending, depthWrite: false }); const flame = new THREE.Sprite(flameMat); flame.position.set(pX, 1.9, pZ); flame.scale.set(1.2, 1.2, 1.2); scene.add(torchMesh); scene.add(light); scene.add(flame); torches.push({ mesh: torchMesh, light: light, flame: flame, baseIntensity: light.intensity, baseScale: flame.scale.x }); } } const fG = new THREE.PlaneGeometry(MAP_DATA[0].length * TILE_SIZE, MAP_DATA.length * TILE_SIZE); const fM = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.9, metalness: 0.1 }); const fl = new THREE.Mesh(fG, fM); fl.rotation.x = -Math.PI / 2; scene.add(fl); const cG = new THREE.PlaneGeometry(MAP_DATA[0].length * TILE_SIZE, MAP_DATA.length * TILE_SIZE); const cM = new THREE.MeshStandardMaterial({ map: ceilingTexture, roughness: 0.9, metalness: 0.1 }); const ce = new THREE.Mesh(cG, cM); ce.position.y = WALL_HEIGHT; ce.rotation.x = Math.PI / 2; scene.add(ce); }
+function buildLevel() {
+    const wG = new THREE.BoxGeometry(TILE_SIZE, WALL_HEIGHT, TILE_SIZE);
+    const wM = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.8, metalness: 0.2 });
+    gameManager.walls.forEach(w => scene.remove(w));
+    gameManager.walls = [];
+    torches.forEach(t => {
+        scene.remove(t.mesh);
+        scene.remove(t.light);
+        scene.remove(t.flame);
+    });
+    torches.length = 0;
+
+    for (let z = 0; z < MAP_DATA.length; z++) {
+        for (let x = 0; x < MAP_DATA[0].length; x++) {
+            const block = MAP_DATA[z][x];
+            const pX = (x - MAP_DATA[0].length / 2) * TILE_SIZE + TILE_SIZE / 2;
+            const pZ = (z - MAP_DATA.length / 2) * TILE_SIZE + TILE_SIZE / 2;
+
+            if (block === 1) {
+                const w = new THREE.Mesh(wG, wM);
+                w.position.set(pX, WALL_HEIGHT / 2, pZ);
+                w.userData.isWall = true;
+                scene.add(w);
+                gameManager.walls.push(w);
+            } else if (block === 5) {
+                const torchY = 2.5;
+                let torchX = pX;
+                let torchZ = pZ;
+                let placeTorch = false;
+
+                if (x > 0 && MAP_DATA[z][x - 1] === 1) { // Wall to the left
+                    torchX = pX - TILE_SIZE / 2 + 0.3;
+                    torchZ = pZ;
+                    placeTorch = true;
+                } else if (x < MAP_DATA[0].length - 1 && MAP_DATA[z][x + 1] === 1) { // Wall to the right
+                    torchX = pX + TILE_SIZE / 2 - 0.3;
+                    torchZ = pZ;
+                    placeTorch = true;
+                } else if (z > 0 && MAP_DATA[z - 1][x] === 1) { // Wall above
+                    torchX = pX;
+                    torchZ = pZ - TILE_SIZE / 2 + 0.3;
+                    placeTorch = true;
+                } else if (z < MAP_DATA.length - 1 && MAP_DATA[z + 1][x] === 1) { // Wall below
+                    torchX = pX;
+                    torchZ = pZ + TILE_SIZE / 2 - 0.3;
+                    placeTorch = true;
+                }
+
+                if (placeTorch) {
+                    const torchGeo = new THREE.CylinderGeometry(0.1, 0.2, 1.5, 8);
+                    const torchMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, metalness: 0.3, emissive: 0x1a0a02, emissiveIntensity: 2 });
+                    const torchMesh = new THREE.Mesh(torchGeo, torchMat);
+                    torchMesh.position.set(torchX, torchY, torchZ);
+
+                    const light = new THREE.PointLight(0xffaa33, 1.5, 15, 2);
+                    light.position.set(torchX, torchY + 0.5, torchZ);
+
+                    const flameMat = new THREE.SpriteMaterial({ map: torchFlameTexture, blending: THREE.AdditiveBlending, depthWrite: false });
+                    const flame = new THREE.Sprite(flameMat);
+                    flame.position.set(torchX, torchY + 0.5, torchZ);
+                    flame.scale.set(1.2, 1.2, 1.2);
+
+                    scene.add(torchMesh);
+                    scene.add(light);
+                    scene.add(flame);
+                    torches.push({ mesh: torchMesh, light: light, flame: flame, baseIntensity: light.intensity, baseScale: flame.scale.x });
+                }
+            }
+        }
+    }
+
+    const fG = new THREE.PlaneGeometry(MAP_DATA[0].length * TILE_SIZE, MAP_DATA.length * TILE_SIZE);
+    const fM = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.9, metalness: 0.1 });
+    const fl = new THREE.Mesh(fG, fM);
+    fl.rotation.x = -Math.PI / 2;
+    scene.add(fl);
+
+    const cG = new THREE.PlaneGeometry(MAP_DATA[0].length * TILE_SIZE, MAP_DATA.length * TILE_SIZE);
+    const cM = new THREE.MeshStandardMaterial({ map: ceilingTexture, roughness: 0.9, metalness: 0.1 });
+    const ce = new THREE.Mesh(cG, cM);
+    ce.position.y = WALL_HEIGHT;
+    ce.rotation.x = Math.PI / 2;
+    scene.add(ce);
+}
 function buildLevelPickups(){gameManager.pickups.forEach(p=>scene.remove(p.mesh));gameManager.pickups=[];for(let z=0;z<MAP_DATA.length;z++)for(let x=0;x<MAP_DATA[0].length;x++){const tT=MAP_DATA[z][x];const p=new THREE.Vector3((x-MAP_DATA[0].length/2)*TILE_SIZE+TILE_SIZE/2,0,(z-MAP_DATA.length/2)*TILE_SIZE+TILE_SIZE/2);let pT=null;if(tT===2)pT='health';else if(tT===3)pT='shotgun_ammo';else if(tT===4)pT='plasma_ammo';if(pT)gameManager.pickups.push(new Pickup(p,pT));}}
 class PointerLockControls extends THREE.EventDispatcher { /* ... same ... */ constructor(c,dE){super();this.camera=c;this.domElement=dE||document.body;this.isLocked=false;this.euler=new THREE.Euler(0,0,0,'YXZ');this.PI_2=Math.PI/2;this.minPolarAngle=0;this.maxPolarAngle=Math.PI;this._onMouseMove=this._onMouseMove.bind(this);this._onPointerlockChange=this._onPointerlockChange.bind(this);this._onPointerlockError=this._onPointerlockError.bind(this);this.connect();} _onMouseMove(e){if(this.isLocked===false)return;const mX=e.movementX||e.mozMovementX||e.webkitMovementX||0;const mY=e.movementY||e.mozMovementY||e.webkitMovementY||0;this.euler.setFromQuaternion(this.camera.quaternion);this.euler.y-=mX*MOUSE_SENSITIVITY;this.euler.x-=mY*MOUSE_SENSITIVITY;this.euler.x=Math.max(this.PI_2-this.maxPolarAngle,Math.min(this.PI_2-this.minPolarAngle,this.euler.x));this.camera.quaternion.setFromEuler(this.euler);this.dispatchEvent({type:'change'});} _onPointerlockChange(){if(document.pointerLockElement===this.domElement||document.mozPointerLockElement===this.domElement||document.webkitPointerLockElement===this.domElement){this.dispatchEvent({type:'lock'});this.isLocked=true;}else{this.dispatchEvent({type:'unlock'});this.isLocked=false;}} _onPointerlockError(e){console.error('PointerLockControls: Error.',e);} connect(){document.addEventListener('mousemove',this._onMouseMove,false);document.addEventListener('pointerlockchange',this._onPointerlockChange,false);document.addEventListener('mozpointerlockchange',this._onPointerlockChange,false);document.addEventListener('webkitpointerlockchange',this._onPointerlockChange,false);document.addEventListener('pointerlockerror',this._onPointerlockError,false);document.addEventListener('mozpointerlockerror',this._onPointerlockError,false);document.addEventListener('webkitpointerlockerror',this._onPointerlockError,false);} disconnect(){document.removeEventListener('mousemove',this._onMouseMove,false);document.removeEventListener('pointerlockchange',this._onPointerlockChange,false);document.removeEventListener('mozpointerlockchange',this._onPointerlockChange,false);document.removeEventListener('webkitpointerlockchange',this._onPointerlockChange,false);document.removeEventListener('pointerlockerror',this._onPointerlockError,false);document.removeEventListener('mozpointerlockerror',this._onPointerlockError,false);document.removeEventListener('webkitpointerlockerror',this._onPointerlockError,false);} dispose(){this.disconnect();} getObject(){return this.camera;} lock(){this.domElement.requestPointerLock=this.domElement.requestPointerLock||this.domElement.mozRequestPointerLock||this.domElement.webkitRequestPointerLock;if(this.domElement.requestPointerLock)this.domElement.requestPointerLock();else console.warn("requestPointerLock not available.");} unlock(){document.exitPointerLock=document.exitPointerLock||document.mozExitPointerLock||document.webkitExitPointerLock;if(document.exitPointerLock)document.exitPointerLock();else console.warn("exitPointerLock not available.");}}
 
