@@ -71,9 +71,113 @@
         let scrollerPosition=0;const scrollerSpeed=30;let lastScrollerTime=performance.now();const scrollerColors=['#ffcc00','#00ccff','#ccff00','#ff00cc','#ffffff'];let currentColorIndex=0;let lastColorChangeTime=performance.now();const colorChangeInterval=3000;let bounceOffset=0;let bounceDirection=1;const bounceSpeed=1.5;const maxBounce=3;
         function animateScroller(currentTime){if(messageOverlay.style.display!=='flex'||instructionScrollerContainer.style.display!=='block')return;const delta=(currentTime-lastScrollerTime)/1000;lastScrollerTime=currentTime;scrollerPosition-=scrollerSpeed*delta;const scrollerWidth=instructionScroller.offsetWidth;const containerWidth=instructionScrollerContainer.offsetWidth;if(scrollerPosition<-scrollerWidth)scrollerPosition=containerWidth;if(currentTime-lastColorChangeTime>colorChangeInterval){currentColorIndex=(currentColorIndex+1)%scrollerColors.length;instructionScroller.style.color=scrollerColors[currentColorIndex];lastColorChangeTime=currentTime;}bounceOffset+=bounceDirection*bounceSpeed*delta*10;if(bounceOffset>maxBounce||bounceOffset<-maxBounce){bounceDirection*=-1;bounceOffset=Math.max(-maxBounce,Math.min(maxBounce,bounceOffset));}instructionScroller.style.transform=`translateX(${scrollerPosition}px) translateY(${bounceOffset}px)`;}
         function createPixelTexture(c1,c2,s=32,p='c',d=4){const cv=document.createElement('canvas');cv.width=s;cv.height=s;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.fillStyle=c1;ctx.fillRect(0,0,s,s);ctx.fillStyle=c2;const st=s/d;if(p==='c'){for(let y=0;y<d;y++)for(let x=0;x<d;x++)if((x+y)%2===0)ctx.fillRect(x*st,y*st,st,st)}else if(p==='lH'){for(let y=0;y<d;y+=2)ctx.fillRect(0,y*st,s,st)}else if(p==='lV'){for(let x=0;x<d;x+=2)ctx.fillRect(x*st,0,st,s)}else if(p==='b'){const bH=st;const bW=st*2;for(let r=0;r<d;r++)for(let c=0;c<d/2;c++){let oX=(r%2===0)?0:-bW/2;ctx.fillRect(c*bW+oX,r*bH,bW-1,bH-1);ctx.fillRect(c*bW+oX+bW,r*bH,bW-1,bH-1)}}const t=new THREE.CanvasTexture(cv);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;t.wrapS=THREE.RepeatWrapping;t.wrapT=THREE.RepeatWrapping;t.repeat.set(TILE_SIZE/2,WALL_HEIGHT/2);return t}
-        function createEnemyTexture(baseColor='darkred',eyeColor='yellow',detailColor='#A00000',hornColor='#654321'){const cv=document.createElement('canvas');const sz=64;cv.width=sz;cv.height=sz;const ct=cv.getContext('2d');ct.imageSmoothingEnabled=false;ct.fillStyle=baseColor;ct.fillRect(sz*0.25,sz*0.3,sz*0.5,sz*0.6);ct.fillStyle=detailColor;ct.beginPath();ct.arc(sz*0.5,sz*0.2,sz*0.2,0,Math.PI*2);ct.fill();ct.fillStyle=eyeColor;ct.fillRect(sz*0.4,sz*0.15,sz*0.08,sz*0.08);ct.fillRect(sz*0.52,sz*0.15,sz*0.08,sz*0.08);ct.fillStyle=hornColor;ct.beginPath();ct.moveTo(sz*0.3,sz*0.1);ct.lineTo(sz*0.2,-sz*0.05);ct.lineTo(sz*0.35,sz*0.2);ct.fill();ct.beginPath();ct.moveTo(sz*0.7,sz*0.1);ct.lineTo(sz*0.8,-sz*0.05);ct.lineTo(sz*0.65,sz*0.2);ct.fill();const tx=new THREE.CanvasTexture(cv);tx.magFilter=THREE.NearestFilter;tx.minFilter=THREE.NearestFilter;return tx}
+        function createEnemyTexture(baseColor, eyeColor, detailColor, secondaryColor) {
+    const canvas = document.createElement('canvas');
+    const size = 64;
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = false;
+
+    // Ghostly base shape
+    context.fillStyle = baseColor;
+    context.beginPath();
+    context.moveTo(size * 0.3, size * 0.95);
+    context.bezierCurveTo(size * 0.1, size * 0.8, size * 0.2, size * 0.4, size * 0.5, size * 0.2);
+    context.bezierCurveTo(size * 0.8, size * 0.4, size * 0.9, size * 0.8, size * 0.7, size * 0.95);
+    context.closePath();
+    context.fill();
+
+    // Jagged bottom
+    context.fillStyle = baseColor;
+    context.beginPath();
+    context.moveTo(size * 0.3, size * 0.9);
+    for (let i = 0; i < 5; i++) {
+        context.lineTo(size * (0.35 + i * 0.08), size * (0.95 + (i % 2 === 0 ? 0.05 : -0.03)));
+    }
+    context.lineTo(size * 0.7, size * 0.9);
+    context.closePath();
+    context.fill();
+
+    // Shading and detail
+    context.fillStyle = detailColor;
+    context.beginPath();
+    context.arc(size * 0.5, size * 0.45, size * 0.25, 0, Math.PI, true);
+    context.fill();
+
+    // Eyes
+    context.fillStyle = eyeColor;
+    context.beginPath();
+    context.arc(size * 0.4, size * 0.4, size * 0.08, 0, Math.PI * 2);
+    context.arc(size * 0.6, size * 0.4, size * 0.08, 0, Math.PI * 2);
+    context.fill();
+
+    // Zombie-like features (for the second texture)
+    if (secondaryColor) {
+        context.fillStyle = secondaryColor; // Stitches or scars
+        context.fillRect(size * 0.45, size * 0.6, size * 0.1, size * 0.03);
+        context.fillRect(size * 0.58, size * 0.7, size * 0.03, size * 0.1);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    return texture;
+}
+
+function createAdvancedEnemyTexture(baseColor, eyeColor, detailColor, scarColor) {
+    const canvas = document.createElement('canvas');
+    const size = 64;
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = false;
+
+    // Zombie head shape
+    context.fillStyle = baseColor;
+    context.beginPath();
+    context.arc(size * 0.5, size * 0.5, size * 0.3, 0, Math.PI * 2);
+    context.fill();
+
+    // Damaged ear
+    context.fillStyle = detailColor;
+    context.beginPath();
+    context.arc(size * 0.2, size * 0.5, size * 0.1, 0, Math.PI * 2);
+    context.fill();
+
+    // Eyes with a menacing glow
+    context.fillStyle = 'black';
+    context.beginPath();
+    context.arc(size * 0.4, size * 0.4, size * 0.1, 0, Math.PI * 2);
+    context.arc(size * 0.65, size * 0.4, size * 0.1, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = eyeColor;
+    context.beginPath();
+    context.arc(size * 0.4, size * 0.4, size * 0.05, 0, Math.PI * 2);
+    context.arc(size * 0.65, size * 0.4, size * 0.05, 0, Math.PI * 2);
+    context.fill();
+
+    // Stitched mouth
+    context.strokeStyle = scarColor;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(size * 0.4, size * 0.65);
+    context.lineTo(size * 0.6, size * 0.65);
+    context.stroke();
+    for (let i = 0; i < 4; i++) {
+        context.beginPath();
+        context.moveTo(size * (0.45 + i * 0.05), size * 0.62);
+        context.lineTo(size * (0.45 + i * 0.05), size * 0.68);
+        context.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    return texture;
+}
         const wallTexture=createPixelTexture('#444','#555',32,'b',4),floorTexture=createPixelTexture('#606','#656',32,'c',8),ceilingTexture=createPixelTexture('#303','#353',32,'lH',8);floorTexture.repeat.set(MAP_DATA[0].length,MAP_DATA.length);ceilingTexture.repeat.set(MAP_DATA[0].length,MAP_DATA.length);
-        const enemyRedTexture=createEnemyTexture('darkred','yellow','#A00000'),enemyGreenTexture=createEnemyTexture('#004d00','#ffdd00','#006400','#556B2F'),enemyBlueTexture=createEnemyTexture('#00008B','#ADD8E6','#0000CD','#4682B4');
+        const enemyRedTexture=createEnemyTexture('darkred','yellow','#A00000'),enemyGreenTexture=createAdvancedEnemyTexture('#228B22', 'red', '#556B2F', 'black'),enemyBlueTexture=createEnemyTexture('#00008B','#ADD8E6','#0000CD','#4682B4');
         const watcherTexture = createEnemyTexture('#400040', '#FF00FF', '#600060', '#300030'); 
         function createMuzzleFlashTexture(type='default'){const s=32;const cv=document.createElement('canvas');cv.width=s;cv.height=s;const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;const cX=s/2,cY=s/2;ctx.fillStyle='rgba(255,255,100,0.9)';if(type==='pistol'){for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(cX,cY);ctx.lineTo(cX+Math.cos(i*2*Math.PI/5)*s*0.4,cY+Math.sin(i*2*Math.PI/5)*s*0.4);ctx.lineTo(cX+Math.cos((i+0.5)*2*Math.PI/5)*s*0.2,cY+Math.sin((i+0.5)*2*Math.PI/5)*s*0.2);ctx.closePath();ctx.fill();}}else if(type==='shotgun'){ctx.fillStyle='rgba(255,200,50,0.9)';for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2;const l=s*(0.3+Math.random()*0.3);ctx.beginPath();ctx.moveTo(cX,cY);ctx.lineTo(cX+Math.cos(a)*l,cY+Math.sin(a)*l);ctx.lineTo(cX+Math.cos(a+0.2)*l*0.5,cY+Math.sin(a+0.2)*l*0.5);ctx.closePath();ctx.fill();}}else if(type==='machinegun'){ctx.fillStyle='rgba(255,255,150,0.85)';ctx.beginPath();ctx.moveTo(cX,cY);ctx.lineTo(s,cY-3);ctx.lineTo(s,cY+3);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(cX,cY);ctx.lineTo(s*0.8,cY-2);ctx.lineTo(s*0.8,cY+2);ctx.closePath();ctx.fill();}else if(type==='plasma'){ctx.fillStyle='rgba(100,255,100,0.8)';ctx.beginPath();ctx.arc(cX,cY,s*0.35,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(200,255,200,0.5)';ctx.beginPath();ctx.arc(cX,cY,s*0.45,0,Math.PI*2);ctx.fill();}else{ctx.beginPath();ctx.arc(cX,cY,s*0.4,0,Math.PI*2);ctx.fill();}const tx=new THREE.CanvasTexture(cv);tx.magFilter=THREE.NearestFilter;tx.minFilter=THREE.NearestFilter;return tx;}
         const muzzleFlashes={'Pistol':createMuzzleFlashTexture('pistol'),'Shotgun':createMuzzleFlashTexture('shotgun'),'MachineGun':createMuzzleFlashTexture('machinegun'),'PlasmaGun':createMuzzleFlashTexture('plasma'),'default':createMuzzleFlashTexture('default')};
