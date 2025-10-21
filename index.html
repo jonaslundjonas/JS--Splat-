@@ -299,38 +299,23 @@ function createAdvancedEnemyTexture(baseColor, eyeColor, detailColor, scarColor)
 
         class Enemy { /* ... same ... */
              constructor(position, type = 'red') { this.type = type; this.enemySpecifics = gameManager.getEnemyStats(type);this.health = this.enemySpecifics.health; this.speed = this.enemySpecifics.speed; this.damage = this.enemySpecifics.damage;this.attackRange = 1.5; this.shootRange = this.enemySpecifics.shootRange || 20; this.lastAttackTime = 0; this.attackCooldown = this.enemySpecifics.attackCooldown || 2000; this.projectileType = this.enemySpecifics.projectileType || null; this.scoreValue = this.enemySpecifics.scoreValue || 1;this.isAttacking = false; this.attackChargeTime = 0;
-                this.mesh = new THREE.Group();
+
                 let texture;
-                if (type === 'green') { // Zombie
-                    texture = enemyGreenTexture;
-                    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8, metalness: 0.2 }));
-                    head.position.y = 0.8;
-                    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.4), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8, metalness: 0.2 }));
-                    this.mesh.add(head);
-                    this.mesh.add(body);
-                } else if (type === 'red') { // Ghost
-                    texture = enemyRedTexture;
-                    const ghostMat = new THREE.MeshStandardMaterial({ map: texture, transparent: true, opacity: 0.7, roughness: 0.5, metalness: 0.1 });
-                    const ghostBody = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.8), ghostMat);
-                    this.mesh.add(ghostBody);
-                } else if (type === 'fire_monster') {
-                    texture = fireMonsterTexture;
-                    const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.7, metalness: 0.3, emissive: 0xff4500, emissiveIntensity: 0.3, emissiveMap: texture }));
-                    const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ map: texture, roughness: 0.7, metalness: 0.3, emissive: 0xff4500, emissiveIntensity: 0.3, emissiveMap: texture }));
-                    head.position.y = 1.3;
-                    this.mesh.add(body);
-                    this.mesh.add(head);
-                } else { // Other enemies
-                    if (type === 'blue') texture = enemyBlueTexture;
-                    else if (type === 'watcher') texture = watcherTexture;
-                    else texture = enemyRedTexture;
-                    const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8, metalness: 0.2 });
-                    const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 1), mat);
-                    this.mesh.add(body);
-                }
+                if (type === 'green') texture = enemyGreenTexture;
+                else if (type === 'blue') texture = enemyBlueTexture;
+                else if (type === 'watcher') texture = watcherTexture;
+                else if (type === 'fire_monster') texture = fireMonsterTexture;
+                else texture = enemyRedTexture;
+
+                const material = new THREE.SpriteMaterial({ map: texture, transparent: type === 'red', opacity: (type === 'red' ? 0.8 : 1.0), sizeAttenuation: true });
+                this.mesh = new THREE.Sprite(material);
+
+                const scaleHeight = (type === 'watcher') ? 1.4 : 1.8;
+                const scaleWidth = (type === 'watcher') ? 1.4 : 1.5;
+                this.mesh.scale.set(scaleWidth, scaleHeight, 1);
 
                 this.mesh.position.copy(position);
-                this.mesh.position.y = (type === 'watcher') ? PLAYER_HEIGHT + 1.5 : PLAYER_HEIGHT / 2 - 0.3;
+                this.mesh.position.y = (type === 'watcher') ? PLAYER_HEIGHT + 1.5 : PLAYER_HEIGHT / 2;
                 scene.add(this.mesh);
 
                 const enemyColliderWidth=(type==='watcher')?1.2:1.0,enemyColliderHeight=(type==='watcher')?1.2:1.6,enemyColliderDepth=(type==='watcher')?1.2:0.5;
@@ -341,7 +326,7 @@ function createAdvancedEnemyTexture(baseColor, eyeColor, detailColor, scarColor)
                 this.collisionMesh.userData={isEnemyCollider:true,enemyInstance:this};
                 scene.add(this.collisionMesh);
             }
-            update(delta, playerPosition) {if(this.health<=0)return;this.collisionMesh.position.copy(this.mesh.position);const lookAtPosition=new THREE.Vector3(camera.position.x,this.mesh.position.y,camera.position.z);this.mesh.lookAt(lookAtPosition);const directionToPlayer=new THREE.Vector3().subVectors(playerPosition,this.mesh.position);const distanceToPlayer=directionToPlayer.length();directionToPlayer.normalize();let hasLOS=false;if(distanceToPlayer<this.shootRange*1.2){const raycaster=new THREE.Raycaster(this.mesh.position,directionToPlayer,0,distanceToPlayer);const intersects=raycaster.intersectObjects(gameManager.walls);if(intersects.length===0||intersects[0].distance>=distanceToPlayer-0.1)hasLOS=true;}if(this.isAttacking&&this.type==='watcher'){this.attackChargeTime-=delta;const chargeProgress=1-(this.attackChargeTime/(this.enemySpecifics.gasChargeTime||1.5));const intensity=0.4+0.6*Math.abs(Math.sin(chargeProgress*Math.PI*3+performance.now()*0.015));this.mesh.children[0].material.color.setRGB(intensity*0.5,intensity,intensity*0.5);if(this.attackChargeTime<=0){this.isAttacking=false;this.mesh.children[0].material.color.setHex(0xffffff);this.fireWatcherPoisonGas(directionToPlayer);this.lastAttackTime=performance.now();}return;}else if(this.type==='watcher'&&!this.isAttacking){this.mesh.children[0].material.color.setHex(0xffffff);}if(hasLOS){if(this.type==='watcher'){const desiredDist=this.shootRange*0.7;if(distanceToPlayer>desiredDist+1)this.mesh.position.add(directionToPlayer.clone().multiplyScalar(this.speed*delta*0.7));else if(distanceToPlayer<desiredDist-1)this.mesh.position.add(directionToPlayer.clone().multiplyScalar(-this.speed*delta*0.5));const strafeDir=new THREE.Vector3(directionToPlayer.z,0,-directionToPlayer.x).normalize();this.mesh.position.add(strafeDir.multiplyScalar(Math.sin(performance.now()*0.001+this.mesh.uuid.charCodeAt(0))*this.speed*delta*0.3));this.mesh.position.y=PLAYER_HEIGHT+1.5;}else{if(distanceToPlayer>this.attackRange*(this.type==='red'?1:0.8)){const moveVector=directionToPlayer.clone().multiplyScalar(this.speed*delta);this.mesh.position.add(moveVector);this.mesh.position.y=PLAYER_HEIGHT/2-0.3;}}if(distanceToPlayer<=this.shootRange&&(performance.now()-this.lastAttackTime>this.attackCooldown)){if(!this.isAttacking){this.attackPlayer(directionToPlayer);}}}}
+            update(delta, playerPosition) {if(this.health<=0)return;this.collisionMesh.position.copy(this.mesh.position);const directionToPlayer=new THREE.Vector3().subVectors(playerPosition,this.mesh.position);const distanceToPlayer=directionToPlayer.length();directionToPlayer.normalize();let hasLOS=false;if(distanceToPlayer<this.shootRange*1.2){const raycaster=new THREE.Raycaster(this.mesh.position,directionToPlayer,0,distanceToPlayer);const intersects=raycaster.intersectObjects(gameManager.walls);if(intersects.length===0||intersects[0].distance>=distanceToPlayer-0.1)hasLOS=true;}if(this.isAttacking&&this.type==='watcher'){this.attackChargeTime-=delta;const chargeProgress=1-(this.attackChargeTime/(this.enemySpecifics.gasChargeTime||1.5));const intensity=0.4+0.6*Math.abs(Math.sin(chargeProgress*Math.PI*3+performance.now()*0.015));this.mesh.material.color.setRGB(intensity*0.5,intensity,intensity*0.5);if(this.attackChargeTime<=0){this.isAttacking=false;this.mesh.material.color.setHex(0xffffff);this.fireWatcherPoisonGas(directionToPlayer);this.lastAttackTime=performance.now();}return;}else if(this.type==='watcher'&&!this.isAttacking){this.mesh.material.color.setHex(0xffffff);}if(hasLOS){if(this.type==='watcher'){const desiredDist=this.shootRange*0.7;if(distanceToPlayer>desiredDist+1)this.mesh.position.add(directionToPlayer.clone().multiplyScalar(this.speed*delta*0.7));else if(distanceToPlayer<desiredDist-1)this.mesh.position.add(directionToPlayer.clone().multiplyScalar(-this.speed*delta*0.5));const strafeDir=new THREE.Vector3(directionToPlayer.z,0,-directionToPlayer.x).normalize();this.mesh.position.add(strafeDir.multiplyScalar(Math.sin(performance.now()*0.001+this.mesh.uuid.charCodeAt(0))*this.speed*delta*0.3));this.mesh.position.y=PLAYER_HEIGHT+1.5;}else{if(distanceToPlayer>this.attackRange*(this.type==='red'?1:0.8)){const moveVector=directionToPlayer.clone().multiplyScalar(this.speed*delta);this.mesh.position.add(moveVector);this.mesh.position.y=PLAYER_HEIGHT/2;}}if(distanceToPlayer<=this.shootRange&&(performance.now()-this.lastAttackTime>this.attackCooldown)){if(!this.isAttacking){this.attackPlayer(directionToPlayer);}}}}
             attackPlayer(directionToPlayer){this.lastAttackTime=performance.now();if(this.type==='red'){const dir=new THREE.Vector3().subVectors(camera.position,this.mesh.position).normalize();const rc=new THREE.Raycaster(this.mesh.position,dir,0,this.attackRange*1.5);const wi=rc.intersectObjects(gameManager.walls);if(!wi.length||wi[0].distance>new THREE.Vector3().subVectors(camera.position,this.mesh.position).length()){if(new THREE.Vector3().subVectors(camera.position,this.mesh.position).length()<=this.attackRange*1.2){player.takeDamage(this.damage);const ap=new THREE.Mesh(new THREE.SphereGeometry(0.1,4,4),new THREE.MeshBasicMaterial({color:0xaa0000,transparent:true,opacity:0.6}));ap.position.copy(this.mesh.position).add(dir.clone().multiplyScalar(0.5));scene.add(ap);temporaryEffects.push({mesh:ap,lifetime:0.1});}}}else if(this.type==='watcher'){this.isAttacking=true;this.attackChargeTime=this.enemySpecifics.gasChargeTime||1.5;if(audioManager)audioManager.playSound('watcher_poison_charge',{duration:this.attackChargeTime,volume:0.25});}else if(this.projectileType){const projectile=new Projectile(this.mesh.position.clone().add(directionToPlayer.clone().multiplyScalar(0.8)),directionToPlayer,this.enemySpecifics.projectileSpeed||20,this.enemySpecifics.projectileDamage||this.damage,false,0,0,this.projectileType);bullets.push(projectile);scene.add(projectile.mesh);if(this.projectileType==='fireball'&&audioManager)audioManager.playSound('fire_shot',{volume:0.3});if(this.projectileType==='fire'&&audioManager)audioManager.playSound('fire_shot');else if(this.projectileType==='snowflake'&&audioManager)audioManager.playSound('freeze_hit',{volume:0.2,duration:0.4});}}
             fireWatcherPoisonGas(directionToPlayer){if(audioManager)audioManager.playSound('watcher_poison_spew',{volume:0.4});const gasProjectile=new Projectile(this.mesh.position.clone().add(directionToPlayer.clone().multiplyScalar(0.8)),directionToPlayer,this.enemySpecifics.gasProjectileSpeed||8,0,false,0,0,'poison_gas');bullets.push(gasProjectile);scene.add(gasProjectile.mesh);}
             takeDamage(amount,hitPoint){if(this.health<=0)return;this.health-=amount;createBloodSplat(hitPoint||this.mesh.position,false,0.8+Math.random()*0.4);if(this.health<=0){this.health=0;this.die();}}
@@ -471,8 +456,9 @@ function createAdvancedEnemyTexture(baseColor, eyeColor, detailColor, scarColor)
             if(collisionOccurred){camera.position.copy(prevPosition); player.updateCollider(); camera.position.z = targetPos.z;player.updateCollider(); let zCollides = false;for(const wall of gameManager.walls) {if(player.playerCollider.intersectsBox(new THREE.Box3().setFromObject(wall))) {zCollides = true; break;}}if(zCollides) camera.position.z = prevPosition.z; camera.position.x = targetPos.x;player.updateCollider(); let xCollides = false;for(const wall of gameManager.walls) {if(player.playerCollider.intersectsBox(new THREE.Box3().setFromObject(wall))) {xCollides = true; break;}}if(xCollides) camera.position.x = prevPosition.x; player.updateCollider(); }
             for(let i = gameManager.pickups.length - 1; i >= 0; i--){const pickup = gameManager.pickups[i];if(!pickup.collected && player.playerCollider.intersectsSphere(pickup.collider)){pickup.collect();}}
             if(keys['DIGIT1'])player.switchWeapon(0);if(keys['DIGIT2'])player.switchWeapon(1);if(keys['DIGIT3'])player.switchWeapon(2);if(keys['DIGIT4'])player.switchWeapon(3);
-            if(keys['KEYQ']) controls.getObject().rotation.y += BASE_PLAYER_SPEED * 0.005; 
-            if(keys['KEYE']) controls.getObject().rotation.y -= BASE_PLAYER_SPEED * 0.005; 
+            const turnSpeed = BASE_PLAYER_SPEED * 0.005;
+            if(keys['KEYQ']) controls.getObject().rotateY(turnSpeed);
+            if(keys['KEYE']) controls.getObject().rotateY(-turnSpeed);
         }
         
         function createBloodSplat(pos,lg=false,scM=1){const sM=new THREE.SpriteMaterial({color:0xff0000,transparent:true,opacity:0.9});const s=new THREE.Sprite(sM);s.position.copy(pos);s.position.x+=(Math.random()-0.5)*(lg?1:0.3);s.position.y+=(Math.random()-0.5)*(lg?1:0.3);s.position.z+=(Math.random()-0.5)*(lg?1:0.3);const sc=(Math.random()*0.3+0.1)*(lg?2:1)*scM;s.scale.set(sc,sc,sc);scene.add(s);temporaryEffects.push({mesh:s,lifetime:0.4+Math.random()*0.3});}
