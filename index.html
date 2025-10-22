@@ -165,6 +165,7 @@
     canvas.height = size;
     const context = canvas.getContext('2d');
     context.imageSmoothingEnabled = false;
+    context.clearRect(0, 0, size, size);
 
     // Ghostly base shape
     context.fillStyle = baseColor;
@@ -219,6 +220,7 @@ function createAdvancedEnemyTexture(baseColor, eyeColor, detailColor, scarColor)
     canvas.height = size;
     const context = canvas.getContext('2d');
     context.imageSmoothingEnabled = false;
+    context.clearRect(0, 0, size, size);
 
     // Zombie head shape
     context.fillStyle = baseColor;
@@ -307,7 +309,7 @@ function createAdvancedEnemyTexture(baseColor, eyeColor, detailColor, scarColor)
                 else if (type === 'fire_monster') texture = fireMonsterTexture;
                 else texture = enemyRedTexture;
 
-                const material = new THREE.SpriteMaterial({ map: texture, transparent: type === 'red', opacity: (type === 'red' ? 0.8 : 1.0), sizeAttenuation: true });
+                const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: (type === 'red' ? 0.8 : 1.0), sizeAttenuation: true });
                 this.mesh = new THREE.Sprite(material);
 
                 const scaleHeight = (type === 'watcher') ? 1.4 : 1.8;
